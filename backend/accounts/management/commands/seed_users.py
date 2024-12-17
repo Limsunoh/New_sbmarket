@@ -3,11 +3,10 @@
 
 import random
 
+from back.accounts.models import User
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from faker import Faker
-
-from back.accounts.models import User
 
 
 class Command(BaseCommand):

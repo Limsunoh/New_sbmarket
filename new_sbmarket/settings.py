@@ -1,7 +1,7 @@
-from pathlib import Path
-from .config import NEW_SB_KEY, SANAI_PASSWORD
 import os
+from pathlib import Path
 
+from .config import NEW_SB_KEY, SANAI_PASSWORD
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     "frontend.accounts",
     "frontend.products",
     "frontend.reviews",
-    
 ]
 
 MIDDLEWARE = [
