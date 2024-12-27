@@ -6,9 +6,9 @@ services:
     image: postgres:14
     restart: always
     environment:
-      POSTGRES_USER: newsb
-      POSTGRES_PASSWORD: newsbmarket
-      POSTGRES_DB: newsb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - '5432:5432'
     volumes:
@@ -25,9 +25,9 @@ services:
              python manage.py runserver 0.0.0.0:8000"
     environment:
       DJANGO_ENV: development
-      POSTGRES_USER: newsb
-      POSTGRES_PASSWORD: newsbmarket
-      POSTGRES_DB: newsb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: db
     restart: always
     ports:
