@@ -1,6 +1,4 @@
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
-RefreshToken = TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 class TokenManager:
@@ -12,4 +10,5 @@ class TokenManager:
         return {
             "refresh": str(self.refresh),
             "access": str(self.refresh.access_token),
+            "username": self.user.username,
         }
