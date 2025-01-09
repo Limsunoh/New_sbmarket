@@ -1,5 +1,7 @@
 from django.core.validators import RegexValidator
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
 
@@ -8,6 +10,32 @@ password_regex_validator = RegexValidator(
     regex=r'^(?=.*[A-Za-z])(?=.*[\d])(?=.*[!@#$%^&*(),.?":{}|<>])(?!.*(.)\1\1).{10,}$',
     message="비밀번호는 최소 10자 이상이어야 하며, 숫자, 문자, 특수문자 중 2가지 이상을 포함해야 하고, 연속되는 동일 문자가 3회 이상 반복되지 않아야 합니다.",
 )
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    사용자 이름 포함 JWT 토큰 생성 및 이메일 인증 확인.
+    """
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # 이메일 인증 확인
+        if not self.user.is_active:
+            raise serializers.ValidationError(
+                {"detail": "이메일 인증이 완료되지 않은 계정입니다."},
+                code="not_verified",
+            )
+
+        # 사용자 이름 추가
+        data["username"] = self.user.username
+
+        # Refresh 및 Access 토큰 직접 생성
+        refresh = RefreshToken.for_user(self.user)
+        data["refresh"] = str(refresh)
+        data["access"] = str(refresh.access_token)
+
+        return data
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -74,4 +102,5 @@ class UserSerializer(serializers.ModelSerializer):
         user.is_active = False
         user.total_score = 30  # 기본 점수 설정
         user.save()
+
         return user
