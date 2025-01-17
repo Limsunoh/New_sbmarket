@@ -1,11 +1,17 @@
+from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
+from django.db import models
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
-from .models import User
+from backend.accounts.models import User
+from backend.products.models import Product
+from backend.products.serializers import ProductListSerializer
+from backend.reviews.models import Review
+from backend.reviews.serializers import ReviewSerializer
 
 # Custom RegexValidator for password validation
 password_regex_validator = RegexValidator(
@@ -169,3 +175,203 @@ class ActivateUserSerializer(serializers.Serializer):
             raise serializers.ValidationError("사용자가 존재하지 않습니다.")
         except Exception as e:
             raise serializers.ValidationError(f"에러 발생: {str(e)}")
+
+
+class UserFollowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "nickname",
+            "image",
+        )
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    """
+    사용자 프로필 정보를 직렬화하는 Serializer.
+
+    - 작성한 상품, 찜한 상품, 팔로잉, 팔로워, 리뷰 데이터를 포함.
+    - 프로필 이미지와 생성일을 포맷팅하여 제공.
+    """
+
+    products = serializers.SerializerMethodField()
+    like_products = serializers.SerializerMethodField()
+    followings = serializers.SerializerMethodField()
+    followers = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    total_score = serializers.FloatField(read_only=True)
+    created_at = serializers.DateTimeField(format="%Y-%m-%d", read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            "name",
+            "nickname",
+            "birth",
+            "email",
+            "postcode",
+            "mainaddress",
+            "subaddress",
+            "extraaddress",
+            "created_at",
+            "image",
+            "profile_image",
+            "introduce",
+            "products",
+            "like_products",
+            "followings",
+            "followers",
+            "reviews",
+            "total_score",
+        )
+
+    def get_profile_image(self, obj):
+        """프로필 이미지 URL을 반환합니다."""
+        return obj.get_profile_image_url()
+
+    def get_products(self, obj):
+        """유저가 작성한 상품 목록을 반환합니다."""
+        products = Product.objects.filter(author=obj)
+        return ProductListSerializer(products, many=True).data
+
+    def get_like_products(self, obj):
+        """유저가 찜한 상품 목록을 반환합니다."""
+        like_products = obj.like_products.all()
+        return ProductListSerializer(like_products, many=True).data
+
+    def get_followings(self, obj):
+        """유저가 팔로잉한 사용자 목록을 반환합니다."""
+        followings = obj.followings.all()
+        return UserFollowSerializer(followings, many=True).data
+
+    def get_followers(self, obj):
+        """유저를 팔로우하는 사용자 목록을 반환합니다."""
+        followers = obj.followers.all()
+        return UserFollowSerializer(followers, many=True).data
+
+    def get_reviews(self, obj):
+        """유저가 작성한 리뷰 목록을 반환합니다."""
+        reviews = Review.objects.filter(author=obj)
+        return ReviewSerializer(reviews, many=True).data
+
+    def get_review_score_total(self, obj):
+        """
+        유저가 작성한 제품에 대한 리뷰 점수 총합을 계산합니다.
+        """
+        total_score = 0
+        products = Product.objects.filter(author=obj)
+
+        # 각 제품의 리뷰 점수를 합산
+        for product in products:
+            total_score += product.reviews.aggregate(models.Sum("score"))["score__sum"] or 0
+
+        return total_score
+
+
+class UserChangeSerializer(serializers.ModelSerializer):
+    """
+    사용자 정보를 수정하는 Serializer.
+
+    - 프로필 이미지를 포함하며, 일부 필드만 수정 가능합니다.
+    """
+
+    profile_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            "username",
+            "nickname",
+            "name",
+            "postcode",
+            "mainaddress",
+            "subaddress",
+            "extraaddress",
+            "birth",
+            "email",
+            "image",
+            "profile_image",
+            "introduce",
+        )
+        read_only_fields = ("username",)
+
+    def get_profile_image(self, obj):
+        """프로필 이미지 URL을 반환합니다."""
+        return obj.get_profile_image_url()
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """
+    사용자 비밀번호 변경을 위한 Serializer.
+
+    - 입력 필드:
+        - current_password: 현재 비밀번호
+        - new_password: 새 비밀번호
+        - password_check: 새 비밀번호 확인
+    """
+
+    current_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, write_only=True)
+    password_check = serializers.CharField(required=True, write_only=True)
+
+    def validate_current_password(self, value):
+        """
+        현재 비밀번호 검증.
+
+        - 현재 비밀번호가 올바르지 않으면 ValidationError를 발생시킵니다.
+        """
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("현재 비밀번호가 올바르지 않습니다.")
+        return value
+
+    def validate(self, data):
+        """
+        전체 데이터 검증.
+
+        - 새 비밀번호와 비밀번호 확인이 일치하는지 확인합니다.
+        - Django 기본 비밀번호 검증기를 통해 새 비밀번호를 검증합니다.
+        """
+        new_password = data.get("new_password")
+        password_check = data.get("password_check")
+
+        # 새 비밀번호와 확인 비밀번호 일치 여부 확인
+        if new_password != password_check:
+            raise serializers.ValidationError({"password_check": "새 비밀번호가 일치하지 않습니다."})
+
+        # Django의 기본 비밀번호 검증기 활용
+        try:
+            validate_password(new_password, self.context["request"].user)
+        except serializers.ValidationError as e:
+            raise serializers.ValidationError({"new_password": e.messages})
+
+        return data
+
+    def update(self, instance, validated_data):
+        """
+        사용자 비밀번호 업데이트.
+
+        - 새 비밀번호를 설정하고 저장합니다.
+        """
+        instance.set_password(validated_data["new_password"])
+        instance.save()
+        return instance
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    profile_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "nickname",
+            "profile_image",
+        )
+
+    def get_profile_image(self, obj):
+        return obj.get_profile_image_url()

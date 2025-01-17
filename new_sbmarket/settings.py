@@ -1,5 +1,6 @@
-import os
 from pathlib import Path
+
+from decouple import config
 
 from .config import NEW_SB_KEY, SANAI_PASSWORD
 
@@ -79,11 +80,11 @@ WSGI_APPLICATION = "new_sbmarket.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "newsb"),
-        "USER": os.getenv("POSTGRES_USER", "newsb"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "newsbmarket"),
-        "HOST": os.getenv("POSTGRES_HOST", "db"),  # Docker Compose의 서비스 이름
-        "PORT": "5432",
+        "NAME": config("POSTGRES_DB"),
+        "USER": config("POSTGRES_USER"),
+        "PASSWORD": config("POSTGRES_PASSWORD"),
+        "HOST": config("POSTGRES_HOST", default="localhost"),
+        "PORT": config("POSTGRES_PORT", default="5432"),
     }
 }
 
@@ -96,6 +97,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
     },
     {
         "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
