@@ -178,23 +178,18 @@ class ChangePasswordView(GenericAPIView):
     - 요청 데이터에서 새 비밀번호를 검증 후 저장.
     """
 
-    queryset = User.objects.all()
     serializer_class = ChangePasswordSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    lookup_field = "username"
+    permission_classes = [IsAuthenticated]
 
     def patch(self, request, *args, **kwargs):
-        user = self.get_object()
+        """
+        PATCH 요청을 처리하여 사용자 비밀번호를 변경합니다.
+        """
+        user = request.user
         serializer = self.get_serializer(data=request.data, context={"request": request})
-
-        if serializer.is_valid():
-            serializer.save(user=user)
-            return Response(
-                {"message": "비밀번호가 성공적으로 변경되었습니다."},
-                status=status.HTTP_200_OK,
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=user)
+        return Response({"message": "비밀번호가 성공적으로 변경되었습니다."}, status=status.HTTP_200_OK)
 
 
 class FollowView(GenericAPIView):
