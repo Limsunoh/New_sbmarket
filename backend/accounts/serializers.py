@@ -1,4 +1,3 @@
-from django.contrib.auth.password_validation import validate_password
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils.encoding import force_str
@@ -313,9 +312,9 @@ class ChangePasswordSerializer(serializers.Serializer):
         - password_check: 새 비밀번호 확인
     """
 
-    current_password = serializers.CharField(required=True, write_only=True)
-    new_password = serializers.CharField(required=True, write_only=True)
-    password_check = serializers.CharField(required=True, write_only=True)
+    current_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True, validators=[password_regex_validator])
+    password_check = serializers.CharField(write_only=True, required=True)
 
     def validate_current_password(self, value):
         """
@@ -330,23 +329,15 @@ class ChangePasswordSerializer(serializers.Serializer):
 
     def validate(self, data):
         """
-        전체 데이터 검증.
+        데이터 검증.
 
         - 새 비밀번호와 비밀번호 확인이 일치하는지 확인합니다.
-        - Django 기본 비밀번호 검증기를 통해 새 비밀번호를 검증합니다.
         """
         new_password = data.get("new_password")
         password_check = data.get("password_check")
 
-        # 새 비밀번호와 확인 비밀번호 일치 여부 확인
         if new_password != password_check:
             raise serializers.ValidationError({"password_check": "새 비밀번호가 일치하지 않습니다."})
-
-        # Django의 기본 비밀번호 검증기 활용
-        try:
-            validate_password(new_password, self.context["request"].user)
-        except serializers.ValidationError as e:
-            raise serializers.ValidationError({"new_password": e.messages})
 
         return data
 
