@@ -15,7 +15,7 @@ CHECKLIST_OPTIONS = (
     ("시간을 안 지켜요", "시간을 안 지켜요"),
 )
 
-# 점수 매핑 딕셔너리 (CHECKLIST_OPTIONS와 동일한 키 사용)
+# 점수 매핑 딕셔너리
 SCORE_MAPPING = {
     "품질이 우수해요": 0.5,
     "합리적인 가격이에요": 0.5,
@@ -33,34 +33,24 @@ SCORE_MAPPING = {
 class Review(models.Model):
     """
     리뷰 모델.
-
-    - 작성자와 상품 간 1:1 관계로 연결.
-    - 체크리스트와 추가 코멘트를 통해 리뷰 작성.
     """
 
     author = models.ForeignKey(
         "backend_accounts.User",
         related_name="reviews",
         on_delete=models.CASCADE,
-        help_text="리뷰를 작성한 사용자",
     )
     product = models.OneToOneField(
         "backend_products.Product",
         related_name="reviewed_product",
         on_delete=models.CASCADE,
-        help_text="리뷰가 작성된 상품",
     )
-    checklist = MultiSelectField(
-        choices=CHECKLIST_OPTIONS,
-        help_text="리뷰 체크리스트 (다중 선택 가능)",
-    )
-    additional_comments = models.TextField(blank=True, help_text="추가 코멘트")
-    created_at = models.DateTimeField(auto_now_add=True, help_text="리뷰 작성일")
-    score = models.FloatField(default=0, help_text="리뷰 점수")
-
-    # 상태 필드
-    is_deleted = models.BooleanField(default=False, help_text="리뷰 삭제 여부 (삭제 후 재작성 방지)")
-    is_score_assigned = models.BooleanField(default=False, help_text="리뷰 점수 할당 여부 (최초 저장 시에만 반영)")
+    checklist = MultiSelectField(choices=CHECKLIST_OPTIONS)
+    additional_comments = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    score = models.FloatField(default=0)
+    is_deleted = models.BooleanField(default=False)
+    is_score_assigned = models.BooleanField(default=False)
 
     def calculate_score(self):
         """
@@ -68,26 +58,37 @@ class Review(models.Model):
         """
         return sum(SCORE_MAPPING.get(choice, 0) for choice in self.checklist)
 
-    def save(self, *args, **kwargs):
+    @classmethod
+    def create_review(cls, author, product, checklist, additional_comments):
         """
-        리뷰 저장 메서드.
+        리뷰 생성 메서드.
 
-        - 점수를 최초로 계산 및 반영.
-        - 상품 작성자의 총점(total_score)을 업데이트.
+        - 리뷰 작성 여부와 구매자 여부를 확인한 뒤 생성.
         """
-        if not self.is_score_assigned:
-            self.score = self.calculate_score()
-            seller = self.product.author
-            seller.total_score += self.score
-            seller.save()
-            self.is_score_assigned = True
-        super().save(*args, **kwargs)
+        if hasattr(product, "reviewed_product"):
+            raise ValueError("이 상품에는 이미 리뷰가 작성되었습니다.")
+
+        chat_room = product.chatrooms.filter(buyer=author, status__is_sold=True).first()
+        if not chat_room:
+            raise ValueError("리뷰는 해당 상품의 구매자만 작성할 수 있습니다.")
+
+        # 리뷰 생성 및 점수 반영
+        review = cls(
+            author=author,
+            product=product,
+            checklist=checklist,
+            additional_comments=additional_comments,
+        )
+        review.score = review.calculate_score()
+        review.is_score_assigned = True
+        review.save()
+        return review
 
     def delete(self, *args, **kwargs):
         """
         리뷰 삭제 메서드.
 
-        - 리뷰를 실제로 삭제하지 않고, `is_deleted` 플래그를 True로 설정.
+        - 실제로 삭제하지 않고 `is_deleted`를 True로 설정.
         """
         self.is_deleted = True
         self.save()
