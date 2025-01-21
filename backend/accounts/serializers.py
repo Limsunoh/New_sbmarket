@@ -177,14 +177,38 @@ class ActivateUserSerializer(serializers.Serializer):
 
 
 class UserFollowSerializer(serializers.ModelSerializer):
+    """
+    사용자 팔로우 직렬화.
+    """
+
     class Meta:
         model = User
-        fields = (
-            "id",
-            "username",
-            "nickname",
-            "image",
-        )
+        fields = ("id", "username", "nickname", "image")
+
+    def toggle_follow(self, current_user, target_user):
+        """
+        팔로우 상태를 반전시키는 메서드.
+
+        Args:
+            current_user: 현재 요청을 보낸 사용자.
+            target_user: 팔로우 대상 사용자.
+        """
+        if current_user in target_user.followers.all():
+            target_user.followers.remove(current_user)
+            return {"message": "unfollow했습니다."}
+
+        target_user.followers.add(current_user)
+        return {"message": "follow했습니다."}
+
+    def is_following(self, current_user, target_user):
+        """
+        특정 사용자를 팔로우 중인지 확인.
+
+        Args:
+            current_user: 현재 요청을 보낸 사용자.
+            target_user: 팔로우 대상 사용자.
+        """
+        return current_user in target_user.followers.all()
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -273,8 +297,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserChangeSerializer(serializers.ModelSerializer):
     """
     사용자 정보를 수정하는 Serializer.
-
-    - 프로필 이미지를 포함하며, 일부 필드만 수정 가능합니다.
     """
 
     profile_image = serializers.SerializerMethodField()
@@ -298,8 +320,27 @@ class UserChangeSerializer(serializers.ModelSerializer):
         read_only_fields = ("username",)
 
     def get_profile_image(self, obj):
-        """프로필 이미지 URL을 반환합니다."""
+        """
+        프로필 이미지 URL 반환.
+        """
         return obj.get_profile_image_url()
+
+    def update(self, instance, validated_data):
+        """
+        사용자 프로필 업데이트 로직.
+        """
+        remove_image = self.context["request"].data.get("remove_image")
+        new_image = self.context["request"].FILES.get("image")
+
+        # 프로필 이미지 처리
+        instance.handle_profile_image(remove_image, new_image)
+
+        # 나머지 필드 업데이트
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        instance.save()
+        return instance
 
 
 class ChangePasswordSerializer(serializers.Serializer):

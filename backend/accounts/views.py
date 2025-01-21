@@ -20,6 +20,7 @@ from backend.accounts.serializers import (
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
     UserChangeSerializer,
+    UserFollowSerializer,
     UserListSerializer,
     UserProfileSerializer,
     UserSerializer,
@@ -78,17 +79,19 @@ class ActivateUser(GenericAPIView):
 
         - 이메일 인증 링크를 통해 전달된 사용자 ID와 토큰을 검증합니다.
         - 인증이 완료되면 사용자의 상태를 활성화로 변경합니다.
-
-        Args:
-            request: 클라이언트 요청 객체.
         """
-        serializer = ActivateUserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data["user"]
-            user.is_active = True
-            user.save()
-            return Response({"message": "이메일 인증이 완료되었습니다!"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # 유효성 검사 및 예외 처리
+
+        # 검증된 데이터에서 사용자 객체 가져오기
+        user = serializer.validated_data["user"]
+        user.is_active = True
+        user.save()
+
+        return Response(
+            {"message": "이메일 인증이 완료되었습니다!"},
+            status=status.HTTP_200_OK,
+        )
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -105,10 +108,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class UserProfileView(RetrieveUpdateDestroyAPIView):
     """
     사용자 프로필 조회, 수정 및 삭제 뷰.
-
-    - GET: 프로필 조회
-    - PATCH/PUT: 프로필 수정
-    - DELETE: 계정 비활성화 및 작성한 게시글 삭제
     """
 
     queryset = User.objects.all()
@@ -117,39 +116,13 @@ class UserProfileView(RetrieveUpdateDestroyAPIView):
 
     def get_serializer_class(self):
         """
-        요청에 따라 적절한 Serializer를 반환합니다.
-        - GET 요청: UserProfileSerializer
-        - PATCH/PUT 요청: UserChangeSerializer
+        요청에 따라 적절한 Serializer 반환.
         """
         if self.request.method == "GET":
             return UserProfileSerializer
         if self.request.method in ["PATCH", "PUT"]:
             return UserChangeSerializer
         return super().get_serializer_class()
-
-    def update(self, request, *args, **kwargs):
-        """
-        사용자 프로필 업데이트.
-
-        - 프로필 이미지 업로드 및 삭제 처리 포함.
-        """
-        user = self.get_object()
-        serializer = self.get_serializer(user, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-
-        self.handle_profile_image(user, request)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def handle_profile_image(self, user, request):
-        """
-        프로필 이미지 업로드 및 삭제를 처리합니다.
-        """
-        if request.data.get("remove_image") == "true" and user.image:
-            user.image.delete()
-
-        if "image" in request.FILES:
-            user.image = request.FILES["image"]
 
     def delete(self, request, *args, **kwargs):
         """
@@ -162,9 +135,7 @@ class UserProfileView(RetrieveUpdateDestroyAPIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        user.is_active = False
-        Product.objects.filter(author=user).delete()
-        user.save()
+        user.deactivate_account()
         return Response(
             {"message": "삭제 처리가 완료되었습니다."},
             status=status.HTTP_204_NO_CONTENT,
@@ -201,34 +172,27 @@ class FollowView(GenericAPIView):
     """
 
     queryset = User.objects.all()
+    serializer_class = UserFollowSerializer
     permission_classes = [IsAuthenticated]
-    lookup_field = "username"  # URL에서 username으로 조회
+    lookup_field = "username"
 
     def get(self, request, *args, **kwargs):
         """
         팔로우 상태 확인.
-
-        - 요청자가 특정 사용자를 팔로우 중인지 확인.
         """
-        user = self.get_object()  # 팔로우 대상 사용자
-        is_following = request.user in user.followers.all()
+        target_user = self.get_object()
+        serializer = self.get_serializer()
+        is_following = serializer.is_following(request.user, target_user)
         return Response({"is_following": is_following}, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
         """
         팔로우/언팔로우 처리.
-
-        - 요청자의 팔로우 상태를 반전시킵니다.
         """
         target_user = self.get_object()
-        current_user = request.user
-
-        if current_user in target_user.followers.all():
-            target_user.followers.remove(current_user)
-            return Response({"message": "unfollow했습니다."}, status=status.HTTP_200_OK)
-
-        target_user.followers.add(current_user)
-        return Response({"message": "follow했습니다."}, status=status.HTTP_200_OK)
+        serializer = self.get_serializer()
+        response_data = serializer.toggle_follow(request.user, target_user)
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 class UserFollowingListAPIView(ListAPIView):

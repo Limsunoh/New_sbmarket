@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import models
 from django.templatetags.static import static
@@ -10,8 +11,6 @@ username_validator = UnicodeUsernameValidator()
 class User(AbstractBaseUser):
     """
     사용자 모델.
-
-    - 사용자명, 닉네임, 주소, 프로필 이미지, 팔로우 기능 등을 포함합니다.
     """
 
     username = models.CharField(
@@ -96,16 +95,29 @@ class User(AbstractBaseUser):
 
     def get_profile_image_url(self):
         """
-        프로필 이미지 URL을 반환.
-
-        - 사용자가 프로필 이미지를 업로드하지 않았을 경우 기본 이미지를 반환합니다.
+        프로필 이미지 URL 반환.
         """
         return self.image.url if self.image else static("images/default_profile.jpg")
 
-    def __str__(self):
+    def handle_profile_image(self, remove_image, new_image):
         """
-        문자열 표현.
+        프로필 이미지 삭제 또는 업데이트 로직.
+        """
+        if remove_image == "true" and self.image:
+            self.image.delete()
 
-        - 사용자명을 기준으로 사용자 객체를 문자열로 나타냅니다.
+        if new_image:
+            self.image = new_image
+
+    def deactivate_account(self):
         """
+        계정 비활성화 처리 및 작성한 게시글 삭제.
+        """
+        self.is_active = False
+        self.save()
+
+        Product = apps.get_model("backend_products", "Product")
+        Product.objects.filter(author=self).delete()
+
+    def __str__(self):
         return self.username
