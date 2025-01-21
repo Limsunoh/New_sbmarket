@@ -9,8 +9,6 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from backend.accounts.models import User
 from backend.products.models import Product
 from backend.products.serializers import ProductListSerializer
-from backend.reviews.models import Review
-from backend.reviews.serializers import ReviewSerializer
 
 # Custom RegexValidator for password validation
 password_regex_validator = RegexValidator(
@@ -275,10 +273,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         followers = obj.followers.all()
         return UserFollowSerializer(followers, many=True).data
 
-    def get_reviews(self, obj):
-        """유저가 작성한 리뷰 목록을 반환합니다."""
-        reviews = Review.objects.filter(author=obj)
-        return ReviewSerializer(reviews, many=True).data
+    # def get_reviews(self, obj):
+    #     """유저가 작성한 리뷰 목록을 반환합니다."""
+    #     reviews = Review.objects.filter(author=obj)
+    #     return ReviewSerializer(reviews, many=True).data
 
     def get_review_score_total(self, obj):
         """

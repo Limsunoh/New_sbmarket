@@ -26,9 +26,7 @@ from backend.accounts.serializers import (
     UserSerializer,
 )
 from backend.products.models import Product
-from backend.products.serializers import ProductListSerializer, PurchaseSerializer
-from backend.reviews.models import Review
-from backend.reviews.serializers import ReviewSerializer
+from backend.products.serializers import ProductListSerializer
 
 
 # 유저 생성 API
@@ -250,43 +248,43 @@ class UserProductsListView(ListAPIView):
         return Product.objects.filter(author__username=username)
 
 
-class PurchaseHistoryListView(ListAPIView):
-    """
-    사용자의 구매 내역 조회 API.
-    """
+# class PurchaseHistoryListView(ListAPIView):
+#     """
+#     사용자의 구매 내역 조회 API.
+#     """
 
-    serializer_class = PurchaseSerializer
-    permission_classes = [IsAuthenticated]
+#     serializer_class = PurchaseSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        return Product.objects.filter(chatrooms__buyer=user, chatrooms__status__is_sold=True)
-
-
-class UserReviewListView(ListAPIView):
-    """
-    사용자가 작성한 후기 목록 조회 API.
-    """
-
-    serializer_class = ReviewSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        username = self.kwargs.get("username")
-        user = get_object_or_404(User, username=username)
-        return Review.objects.filter(author=user, is_deleted=False)
+#     def get_queryset(self):
+#         user = self.request.user
+#         return Product.objects.filter(chatrooms__buyer=user, chatrooms__status__is_sold=True)
 
 
-class ReceivedReviewListView(ListAPIView):
-    """
-    사용자가 받은 후기 목록 조회 API.
-    - 매너점수 클릭 시 표시되는 후기들.
-    """
+# class UserReviewListView(ListAPIView):
+#     """
+#     사용자가 작성한 후기 목록 조회 API.
+#     """
 
-    serializer_class = ReviewSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+#     serializer_class = ReviewSerializer
+#     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def get_queryset(self):
-        username = self.kwargs.get("username")
-        user = get_object_or_404(User, username=username)
-        return Review.objects.filter(product__author=user, is_deleted=False)
+#     def get_queryset(self):
+#         username = self.kwargs.get("username")
+#         user = get_object_or_404(User, username=username)
+#         return Review.objects.filter(author=user, is_deleted=False)
+
+
+# class ReceivedReviewListView(ListAPIView):
+#     """
+#     사용자가 받은 후기 목록 조회 API.
+#     - 매너점수 클릭 시 표시되는 후기들.
+#     """
+
+#     serializer_class = ReviewSerializer
+#     permission_classes = [IsAuthenticatedOrReadOnly]
+
+#     def get_queryset(self):
+#         username = self.kwargs.get("username")
+#         user = get_object_or_404(User, username=username)
+#         return Review.objects.filter(product__author=user, is_deleted=False)

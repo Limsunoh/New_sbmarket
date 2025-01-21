@@ -32,19 +32,19 @@ urlpatterns = [
         views.UserFollowerListAPIView.as_view(),
         name="user_followers",
     ),
-    path(
-        "user/<str:username>/reviews/",
-        views.UserReviewListView.as_view(),
-        name="user-reviews",
-    ),
-    path(
-        "user/<str:username>/purchase-history/",
-        views.PurchaseHistoryListView.as_view(),
-        name="user-purchase-history",
-    ),
-    path(
-        "user/<str:username>/received-reviews/",
-        views.ReceivedReviewListView.as_view(),
-        name="user-received-reviews",
-    ),
+    # path(
+    #     "user/<str:username>/reviews/",
+    #     views.UserReviewListView.as_view(),
+    #     name="user-reviews",
+    # ),
+    # path(
+    #     "user/<str:username>/purchase-history/",
+    #     views.PurchaseHistoryListView.as_view(),
+    #     name="user-purchase-history",
+    # ),
+    # path(
+    #     "user/<str:username>/received-reviews/",
+    #     views.ReceivedReviewListView.as_view(),
+    #     name="user-received-reviews",
+    # ),
 ]
