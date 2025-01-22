@@ -1,6 +1,7 @@
-from back.products.models import Product
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, TemplateView
+
+from backend.products.models import Product
 
 
 class HomePageView(TemplateView):

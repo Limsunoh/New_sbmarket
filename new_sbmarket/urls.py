@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from frontend.products.views import HomePageView
+
 urlpatterns = [
+    path("", HomePageView.as_view(), name="home-page"),
     path("admin/", admin.site.urls),
     path("api/accounts/", include("backend.accounts.urls")),
     path("api/products/", include("backend.products.urls")),
